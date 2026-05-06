@@ -2,7 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -12,19 +12,6 @@ jobs:
       - name: Clonar repo
         uses: actions/checkout@v3
 
-      - name: Instalar Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Instalar dependencias
+      - name: Construir imagen Docker
         run: |
-          cd backend
-          npm install
-
-      - name: Ejecutar app (test básico)
-        run: |
-          cd backend
-          node index.js &
-          sleep 5 
-     
+          docker build -t devops-app ./backend
