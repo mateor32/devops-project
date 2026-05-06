@@ -3,7 +3,7 @@ const app = express();
 
 // Ruta principal
 app.get("/", (req, res) => {
-  res.send("🚀 App DevOps funcionando");
+  res.send("🔥 DEPLOY AUTOMÁTICO FUNCIONANDO 🔥");
 });
 
 // Ruta de salud (MUY importante en DevOps)

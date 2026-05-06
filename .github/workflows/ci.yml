@@ -1,11 +1,11 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
     branches: ["main"]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,3 +23,15 @@ jobs:
       - name: Push a Docker Hub
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/devops-app
+
+      - name: Deploy en EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/devops-app
+            docker stop devops-app || true
+            docker rm devops-app || true
+            docker run -d -p 80:3000 --name devops-app ${{ secrets.DOCKER_USERNAME }}/devops-app
