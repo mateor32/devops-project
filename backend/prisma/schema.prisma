@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  NUTRITIONIST
+  TRAINER
+  USER
+}
+
+enum MealType {
+  BREAKFAST
+  MORNING_SNACK
+  LUNCH
+  AFTERNOON_SNACK
+  DINNER
+}
+
+enum NutritionGoal {
+  WEIGHT_LOSS
+  MUSCLE_GAIN
+  MAINTENANCE
+  HEALTH
+}
+
+enum TrainingGoal {
+  HYPERTROPHY
+  STRENGTH
+  ENDURANCE
+  WEIGHT_LOSS
+  FLEXIBILITY
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum MuscleGroup {
+  CHEST
+  BACK
+  LEGS
+  SHOULDERS
+  ARMS
+  CORE
+  CARDIO
+  FULL_BODY
+}
+
+enum FoodCategory {
+  PROTEIN
+  CARB
+  FAT
+  VEGETABLE
+  FRUIT
+  DAIRY
+  OTHER
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// ─── USUARIO ──────────────────────────────────────────────
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String   @unique
+  password    String
+  role        Role     @default(USER)
+  isApproved  Boolean  @default(false)
+  bio         String?
+  specialty   String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones como profesional
+  assignmentsAsNutritionist ProfessionalAssignment[] @relation("Nutritionist")
+  assignmentsAsTrainer      ProfessionalAssignment[] @relation("Trainer")
+
+  // Relaciones como cliente
+  assignment       ProfessionalAssignment? @relation("Client")
+  nutritionPlans   NutritionPlan[]         @relation("UserNutritionPlans")
+  trainingPlans    TrainingPlan[]          @relation("UserTrainingPlans")
+
+  // Mensajes
+  sentMessages     Message[] @relation("Sender")
+  receivedMessages Message[] @relation("Receiver")
+
+  // Catálogos creados por este usuario
+  foodsCreated     FoodCatalog[]     @relation("FoodCreator")
+  exercisesCreated ExerciseCatalog[] @relation("ExerciseCreator")
+  machinesCreated  MachineCatalog[]  @relation("MachineCreator")
+
+  // Planes creados por este profesional
+  nutritionPlansCreated NutritionPlan[] @relation("NutritionistPlans")
+  trainingPlansCreated  TrainingPlan[]  @relation("TrainerPlans")
+
+  // Social
+  ratingsGiven     Rating[] @relation("RatingsGiven")
+  ratingsReceived  Rating[] @relation("RatingsReceived")
+  connectionsSent  ConnectionRequest[] @relation("ConnectionSent")
+  connectionsReceived ConnectionRequest[] @relation("ConnectionReceived")
+}
+
+// ─── CALIFICACIONES ───────────────────────────────────────
+
+model Rating {
+  id         Int      @id @default(autoincrement())
+  score      Int      // 1-5
+  comment    String?
+  fromUser   User     @relation("RatingsGiven", fields: [fromUserId], references: [id])
+  fromUserId Int
+  toUser     User     @relation("RatingsReceived", fields: [toUserId], references: [id])
+  toUserId   Int
+  createdAt  DateTime @default(now())
+
+  @@unique([fromUserId, toUserId])
+}
+
+// ─── SOLICITUDES DE CONEXIÓN ──────────────────────────────
+
+model ConnectionRequest {
+  id        Int              @id @default(autoincrement())
+  from      User             @relation("ConnectionSent", fields: [fromId], references: [id])
+  fromId    Int
+  to        User             @relation("ConnectionReceived", fields: [toId], references: [id])
+  toId      Int
+  status    ConnectionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  @@unique([fromId, toId])
+}
+
+// ─── ASIGNACIÓN PROFESIONAL ───────────────────────────────
+
+model ProfessionalAssignment {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  nutritionistId Int?
+  trainerId      Int?
+  assignedAt     DateTime @default(now())
+
+  user         User  @relation("Client", fields: [userId], references: [id])
+  nutritionist User? @relation("Nutritionist", fields: [nutritionistId], references: [id])
+  trainer      User? @relation("Trainer", fields: [trainerId], references: [id])
+}
+
+// ─── CATÁLOGOS ────────────────────────────────────────────
+
+model FoodCatalog {
+  id               Int          @id @default(autoincrement())
+  name             String       @unique
+  category         FoodCategory @default(OTHER)
+  caloriesPer100g  Float
+  proteinPer100g   Float        @default(0)
+  carbsPer100g     Float        @default(0)
+  fatPer100g       Float        @default(0)
+  defaultUnit      String       @default("gramos")
+  createdById      Int?
+  createdAt        DateTime     @default(now())
+
+  createdBy      User?          @relation("FoodCreator", fields: [createdById], references: [id])
+  mealFoodItems  MealFoodItem[]
+}
+
+model ExerciseCatalog {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  muscleGroup MuscleGroup
+  difficulty  Difficulty  @default(BEGINNER)
+  description String?
+  videoUrl    String?
+  createdById Int?
+  createdAt   DateTime    @default(now())
+
+  createdBy     User?          @relation("ExerciseCreator", fields: [createdById], references: [id])
+  planExercises PlanExercise[]
+}
+
+model MachineCatalog {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  gymArea     String?
+  muscleGroup MuscleGroup
+  description String?
+  imageUrl    String?
+  createdById Int?
+  createdAt   DateTime    @default(now())
+
+  createdBy     User?          @relation("MachineCreator", fields: [createdById], references: [id])
+  planExercises PlanExercise[]
+}
+
+// ─── PLAN NUTRICIONAL ─────────────────────────────────────
+
+model NutritionPlan {
+  id             Int           @id @default(autoincrement())
+  title          String
+  goal           NutritionGoal
+  dailyCalories  Int?
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+
+  userId         Int
+  createdById    Int
+
+  user       User   @relation("UserNutritionPlans", fields: [userId], references: [id])
+  createdBy  User   @relation("NutritionistPlans", fields: [createdById], references: [id])
+  meals      Meal[]
+}
+
+model Meal {
+  id              Int      @id @default(autoincrement())
+  type            MealType
+  time            String
+  nutritionPlanId Int
+
+  nutritionPlan NutritionPlan  @relation(fields: [nutritionPlanId], references: [id], onDelete: Cascade)
+  mealFoodItems MealFoodItem[]
+}
+
+model MealFoodItem {
+  id            Int    @id @default(autoincrement())
+  quantity      Float
+  unit          String @default("gramos")
+  mealId        Int
+  foodCatalogId Int
+
+  meal        Meal        @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodCatalog FoodCatalog @relation(fields: [foodCatalogId], references: [id])
+}
+
+// ─── PLAN DE ENTRENAMIENTO ────────────────────────────────
+
+model TrainingPlan {
+  id          Int          @id @default(autoincrement())
+  title       String
+  goal        TrainingGoal
+  daysPerWeek Int?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  userId      Int
+  createdById Int
+
+  user         User          @relation("UserTrainingPlans", fields: [userId], references: [id])
+  createdBy    User          @relation("TrainerPlans", fields: [createdById], references: [id])
+  trainingDays TrainingDay[]
+}
+
+model TrainingDay {
+  id             Int         @id @default(autoincrement())
+  dayOfWeek      DayOfWeek
+  order          Int         @default(1)
+  muscleGroup    String?
+  trainingPlanId Int
+
+  trainingPlan  TrainingPlan   @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  planExercises PlanExercise[]
+}
+
+model PlanExercise {
+  id                Int    @id @default(autoincrement())
+  sets              Int
+  reps              Int
+  weight            Float?
+  restSeconds       Int    @default(60)
+  order             Int    @default(1)
+  notes             String?
+  trainingDayId     Int
+  exerciseCatalogId Int
+  machineCatalogId  Int?
+
+  trainingDay     TrainingDay     @relation(fields: [trainingDayId], references: [id], onDelete: Cascade)
+  exerciseCatalog ExerciseCatalog @relation(fields: [exerciseCatalogId], references: [id])
+  machineCatalog  MachineCatalog? @relation(fields: [machineCatalogId], references: [id])
+}
+
+// ─── MENSAJES ─────────────────────────────────────────────
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  senderId   Int
+  receiverId Int
+
+  sender   User @relation("Sender", fields: [senderId], references: [id])
+  receiver User @relation("Receiver", fields: [receiverId], references: [id])
+}
